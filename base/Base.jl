@@ -470,6 +470,9 @@ include("util.jl")
 include("client.jl")
 include("asyncmap.jl")
 
+# excised stdlib stubs
+include("stubs.jl")
+
 # deprecated functions
 include("deprecated.jl")
 #
@@ -621,7 +624,7 @@ end
 # enable threads support
 @eval PCRE PCRE_COMPILE_LOCK = Threads.SpinLock()
 
-end
+end # is_primary_base_module
 
 # Ensure this file is also tracked
 @assert !isassigned(_included_files, 1)

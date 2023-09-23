@@ -402,12 +402,6 @@ function seed!(seed=nothing)
     seed!(default_rng(), seed)
 end
 
-function __init__()
-    seed!()
-    ccall(:jl_gc_init_finalizer_rng_state, Cvoid, ())
-end
-
-
 ### generation
 
 # MersenneTwister produces natively Float64
