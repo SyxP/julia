@@ -5,10 +5,10 @@ const track_newly_inferred = RefValue{Bool}(false)
 const newly_inferred = CodeInstance[]
 
 # build (and start inferring) the inference frame for the top-level MethodInstance
-function typeinf(interp::AbstractInterpreter, result::InferenceResult, cache::Symbol)
-    frame = InferenceState(result, cache, interp)
+function typeinf(interp::AbstractInterpreter, result::InferenceResult, cache_mode::Symbol)
+    frame = InferenceState(result, cache_mode, interp)
     frame === nothing && return false
-    cache === :global && lock_mi_inference(interp, result.linfo)
+    cache_mode === :global && lock_mi_inference(interp, result.linfo)
     return typeinf(interp, frame)
 end
 
@@ -273,7 +273,7 @@ function _typeinf(interp::AbstractInterpreter, frame::InferenceState)
             # but our caller might, so let's just make it anyways
             store_backedges(result, caller.stmt_edges[1])
         end
-        if caller.cached
+        if is_cached(caller)
             cache_result!(caller.interp, result)
         end
         finish!(caller.interp, result)
@@ -554,7 +554,7 @@ function finish(me::InferenceState, interp::AbstractInterpreter)
         # a parent may be cached still, but not this intermediate work:
         # we can throw everything else away now
         me.result.src = nothing
-        me.cached = false
+        me.cache_mode = :no
         set_inlineable!(me.src, false)
         unlock_mi_inference(interp, me.linfo)
     elseif limited_src
@@ -566,7 +566,7 @@ function finish(me::InferenceState, interp::AbstractInterpreter)
         # annotate fulltree with type information,
         # either because we are the outermost code, or we might use this later
         type_annotate!(interp, me)
-        doopt = (me.cached || me.parent !== nothing)
+        doopt = (is_cached(me) || me.parent !== nothing)
         # Disable the optimizer if we've already determined that there's nothing for
         # it to do.
         if may_discard_trees(interp) && is_result_constabi_eligible(me.result)
@@ -825,7 +825,7 @@ function typeinf_edge(interp::AbstractInterpreter, method::Method, @nospecialize
             # we already inferred this edge before and decided to discard the inferred code,
             # nevertheless we re-infer it here again and keep it around in the local cache
             # since the inliner will request to use it later
-            cache = :local
+            cache_mode = :local
         else
             rt = cached_return_type(code)
             effects = ipo_effects(code)
@@ -833,7 +833,7 @@ function typeinf_edge(interp::AbstractInterpreter, method::Method, @nospecialize
             return EdgeCallResult(rt, mi, effects)
         end
     else
-        cache = :global # cache edge targets by default
+        cache_mode = :global # cache edge targets by default
     end
     if ccall(:jl_get_module_infer, Cint, (Any,), method.module) == 0 && !generating_output(#=incremental=#false)
         add_remark!(interp, caller, "Inference is disabled for the target module")
@@ -850,7 +850,7 @@ function typeinf_edge(interp::AbstractInterpreter, method::Method, @nospecialize
         # completely new
         lock_mi_inference(interp, mi)
         result = InferenceResult(mi, typeinf_lattice(interp))
-        frame = InferenceState(result, cache, interp) # always use the cache for edge targets
+        frame = InferenceState(result, cache_mode, interp) # always use the cache for edge targets
         if frame === nothing
             add_remark!(interp, caller, "Failed to retrieve source")
             # can't get the source for this, so we know nothing
@@ -981,7 +981,8 @@ typeinf_frame(interp::AbstractInterpreter, method::Method, @nospecialize(atype),
 function typeinf_frame(interp::AbstractInterpreter, mi::MethodInstance, run_optimizer::Bool)
     start_time = ccall(:jl_typeinf_timing_begin, UInt64, ())
     result = InferenceResult(mi, typeinf_lattice(interp))
-    frame = InferenceState(result, run_optimizer ? :global : :no, interp)
+    cache_mode = run_optimizer ? :global : :no
+    frame = InferenceState(result, cache_mode, interp)
     frame === nothing && return nothing
     typeinf(interp, frame)
     ccall(:jl_typeinf_timing_end, Cvoid, (UInt64,), start_time)
@@ -1021,7 +1022,7 @@ function typeinf_ext(interp::AbstractInterpreter, mi::MethodInstance)
     end
     lock_mi_inference(interp, mi)
     result = InferenceResult(mi, typeinf_lattice(interp))
-    frame = InferenceState(result, #=cache=#:global, interp)
+    frame = InferenceState(result, #=cache_mode=#:global, interp)
     frame === nothing && return nothing
     typeinf(interp, frame)
     ccall(:jl_typeinf_timing_end, Cvoid, (UInt64,), start_time)
@@ -1065,7 +1066,7 @@ function typeinf_ext_toplevel(interp::AbstractInterpreter, linfo::MethodInstance
             start_time = ccall(:jl_typeinf_timing_begin, UInt64, ())
             if !src.inferred
                 result = InferenceResult(linfo, typeinf_lattice(interp))
-                frame = InferenceState(result, src, #=cache=#:global, interp)
+                frame = InferenceState(result, src, #=cache_mode=#:global, interp)
                 typeinf(interp, frame)
                 @assert is_inferred(frame) # TODO: deal with this better
                 src = frame.src

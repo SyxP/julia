@@ -504,7 +504,7 @@ CC.bail_out_toplevel_call(::REPLInterpreter, ::CC.InferenceLoopState, ::CC.Infer
 # present any cache validation issues because "repl-frame" is never cached.
 
 function is_call_graph_uncached(sv::CC.AbsIntState)
-    sv isa CC.InferenceState && sv.cached && return false
+    sv isa CC.InferenceState && sv.cache_mode === :global && return false
     parent = sv.parent
     parent === nothing && return true
     return is_call_graph_uncached(parent)
