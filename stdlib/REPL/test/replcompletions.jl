@@ -2044,3 +2044,8 @@ end
     # If this last test starts failing, that's okay, just pick a new example symbol:
     @test !Base.isexported(Base, :ispublic)
 end
+
+let t = REPLCompletions.repl_eval_ex(:(`a b`), @__MODULE__)
+    @test t isa Core.Const
+    @test t.val == `a b`
+end
