@@ -566,7 +566,7 @@ function finish(me::InferenceState, interp::AbstractInterpreter)
         # annotate fulltree with type information,
         # either because we are the outermost code, or we might use this later
         type_annotate!(interp, me)
-        doopt = (is_cached(me) || me.parent !== nothing)
+        doopt = (me.cache_mode !== :no || me.parent !== nothing)
         # Disable the optimizer if we've already determined that there's nothing for
         # it to do.
         if may_discard_trees(interp) && is_result_constabi_eligible(me.result)
@@ -1055,18 +1055,18 @@ end
 
 # This is a bridge for the C code calling `jl_typeinf_func()`
 typeinf_ext_toplevel(mi::MethodInstance, world::UInt) = typeinf_ext_toplevel(NativeInterpreter(world), mi)
-function typeinf_ext_toplevel(interp::AbstractInterpreter, linfo::MethodInstance)
-    if isa(linfo.def, Method)
+function typeinf_ext_toplevel(interp::AbstractInterpreter, mi::MethodInstance)
+    if isa(mi.def, Method)
         # method lambda - infer this specialization via the method cache
-        src = typeinf_ext(interp, linfo)
+        src = typeinf_ext(interp, mi)
     else
-        src = linfo.uninferred::CodeInfo
+        src = mi.uninferred::CodeInfo
         if !src.inferred
             # toplevel lambda - infer directly
             start_time = ccall(:jl_typeinf_timing_begin, UInt64, ())
             if !src.inferred
-                result = InferenceResult(linfo, typeinf_lattice(interp))
-                frame = InferenceState(result, src, #=cache_mode=#:global, interp)
+                result = InferenceResult(mi, typeinf_lattice(interp))
+                frame = InferenceState(result, src, #=cache_mode=#:local, interp)
                 typeinf(interp, frame)
                 @assert is_inferred(frame) # TODO: deal with this better
                 src = frame.src
