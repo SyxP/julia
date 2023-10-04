@@ -490,9 +490,10 @@ static const std::string make_errmsg(const char *fname, int n, const char *err)
     std::string _msg;
     raw_string_ostream msg(_msg);
     msg << fname;
-    if (n > 0)
-        msg << " argument " << n;
-    else
+    if (n > 0) {
+        msg << " argument ";
+        msg << n;
+    } else
         msg << " return";
     msg << err;
     return msg.str();

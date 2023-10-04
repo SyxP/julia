@@ -1316,7 +1316,11 @@ static void error_unless(jl_codectx_t &ctx, Value *cond, const Twine &msg)
     ctx.builder.SetInsertPoint(failBB);
     just_emit_error(ctx, prepare_call(jlerror_func), msg);
     ctx.builder.CreateUnreachable();
+#if JL_LLVM_VERSION >= 160000
+    ctx.f->insert(ctx.f->end(), passBB);
+#else
     ctx.f->getBasicBlockList().push_back(passBB);
+#endif
     ctx.builder.SetInsertPoint(passBB);
 }
 
@@ -1330,7 +1334,11 @@ static void raise_exception(jl_codectx_t &ctx, Value *exc,
         contBB = BasicBlock::Create(ctx.builder.getContext(), "after_throw", ctx.f);
     }
     else {
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), contBB);
+#else
         ctx.f->getBasicBlockList().push_back(contBB);
+#endif
     }
     ctx.builder.SetInsertPoint(contBB);
 }
@@ -1701,7 +1709,11 @@ static void emit_typecheck(jl_codectx_t &ctx, const jl_cgval_t &x, jl_value_t *t
         just_emit_type_error(ctx, x, literal_pointer_val(ctx, type), msg);
         ctx.builder.CreateUnreachable();
 
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), passBB);
+#else
         ctx.f->getBasicBlockList().push_back(passBB);
+#endif
         ctx.builder.SetInsertPoint(passBB);
     }
 }
@@ -1777,7 +1789,11 @@ static Value *emit_bounds_check(jl_codectx_t &ctx, const jl_cgval_t &ainfo, jl_v
                     i });
         }
         ctx.builder.CreateUnreachable();
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), passBB);
+#else
         ctx.f->getBasicBlockList().push_back(passBB);
+#endif
         ctx.builder.SetInsertPoint(passBB);
     }
 #endif
@@ -2873,7 +2889,11 @@ static Value *emit_arrayptr_internal(jl_codectx_t &ctx, const jl_cgval_t &tinfo,
     else
         setName(ctx.emission_context, LI, ".data");
     LI->setOrdering(AtomicOrdering::NotAtomic);
+#if JL_LLVM_VERSION >= 160000
+    LI->setMetadata(LLVMContext::MD_nonnull, MDNode::get(ctx.builder.getContext(), std::nullopt));
+#else
     LI->setMetadata(LLVMContext::MD_nonnull, MDNode::get(ctx.builder.getContext(), None));
+#endif
     jl_aliasinfo_t aliasinfo = jl_aliasinfo_t::fromTBAA(ctx, arraytype_constshape(tinfo.typ) ? ctx.tbaa().tbaa_const : ctx.tbaa().tbaa_arrayptr);
     aliasinfo.decorateInst(LI);
 
@@ -2930,7 +2950,11 @@ static Value *emit_arrayndims(jl_codectx_t &ctx, const jl_cgval_t &ary)
     ++EmittedArrayNDims;
     Value *flags = emit_arrayflags(ctx, ary);
     auto name = flags->getName();
+#if JL_LLVM_VERSION >= 160000
+    cast<LoadInst>(flags)->setMetadata(LLVMContext::MD_invariant_load, MDNode::get(ctx.builder.getContext(), std::nullopt));
+#else
     cast<LoadInst>(flags)->setMetadata(LLVMContext::MD_invariant_load, MDNode::get(ctx.builder.getContext(), None));
+#endif
     flags = ctx.builder.CreateLShr(flags, 2);
     flags = ctx.builder.CreateAnd(flags, 0x1FF); // (1<<9) - 1
     setName(ctx.emission_context, flags, name + ".ndims");
@@ -3026,7 +3050,11 @@ static Value *emit_array_nd_index(
                 auto bc = ctx.builder.CreateICmpULT(ii, d);
                 setName(ctx.emission_context, bc, "inbounds");
                 ctx.builder.CreateCondBr(bc, okBB, failBB);
+#if JL_LLVM_VERSION >= 160000
+                ctx.f->insert(ctx.f->end(), okBB);
+#else
                 ctx.f->getBasicBlockList().push_back(okBB);
+#endif
                 ctx.builder.SetInsertPoint(okBB);
             }
 #endif
@@ -3061,7 +3089,11 @@ static Value *emit_array_nd_index(
             auto bc = ctx.builder.CreateICmpULT(last_index, last_dimension);
             setName(ctx.emission_context, bc, "inbounds");
             ctx.builder.CreateCondBr(bc, checktrailingdimsBB, failBB);
+#if JL_LLVM_VERSION >= 160000
+            ctx.f->insert(ctx.f->end(), checktrailingdimsBB);
+#else
             ctx.f->getBasicBlockList().push_back(checktrailingdimsBB);
+#endif
             ctx.builder.SetInsertPoint(checktrailingdimsBB);
             // And then also make sure that all dimensions that weren't explicitly
             // indexed into have size 1
@@ -3071,7 +3103,11 @@ static Value *emit_array_nd_index(
                 auto bc = ctx.builder.CreateICmpEQ(dim, ConstantInt::get(ctx.types().T_size, 1));
                 setName(ctx.emission_context, bc, "inbounds");
                 ctx.builder.CreateCondBr(bc, dimsokBB, failBB);
+#if JL_LLVM_VERSION >= 160000
+                ctx.f->insert(ctx.f->end(), dimsokBB);
+#else
                 ctx.f->getBasicBlockList().push_back(dimsokBB);
+#endif
                 ctx.builder.SetInsertPoint(dimsokBB);
             }
             Value *dim = emit_arraysize_for_unsafe_dim(ctx, ainfo, ex, nd, nd);
@@ -3080,7 +3116,11 @@ static Value *emit_array_nd_index(
             ctx.builder.CreateCondBr(bc2, endBB, failBB);
         }
 
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), failBB);
+#else
         ctx.f->getBasicBlockList().push_back(failBB);
+#endif
         ctx.builder.SetInsertPoint(failBB);
         // CreateAlloca is OK here since we are on an error branch
         Value *tmp = ctx.builder.CreateAlloca(ctx.types().T_size, ConstantInt::get(ctx.types().T_size, nidxs));
@@ -3092,7 +3132,11 @@ static Value *emit_array_nd_index(
             { mark_callee_rooted(ctx, a), tmp, ConstantInt::get(ctx.types().T_size, nidxs) });
         ctx.builder.CreateUnreachable();
 
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), endBB);
+#else
         ctx.f->getBasicBlockList().push_back(endBB);
+#endif
         ctx.builder.SetInsertPoint(endBB);
     }
 #endif
@@ -3678,7 +3722,11 @@ static void emit_cpointercheck(jl_codectx_t &ctx, const jl_cgval_t &x, const Twi
     just_emit_type_error(ctx, x, literal_pointer_val(ctx, (jl_value_t*)jl_pointer_type), msg);
     ctx.builder.CreateUnreachable();
 
+#if JL_LLVM_VERSION >= 160000
+    ctx.f->insert(ctx.f->end(), passBB);
+#else
     ctx.f->getBasicBlockList().push_back(passBB);
+#endif
     ctx.builder.SetInsertPoint(passBB);
 }
 
