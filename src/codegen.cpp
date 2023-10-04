@@ -78,6 +78,13 @@
 
 using namespace llvm;
 
+#if JL_LLVM_VERSION >= 160000
+#include <optional>
+#define None std::nullopt;
+template<typename T>
+using Optional = std::optional<T>;
+#endif
+
 static bool jl_fpo_disabled(const Triple &TT) {
 #ifdef JL_DISABLE_FPO
     return true;
@@ -3508,12 +3515,20 @@ static bool emit_builtin_call(jl_codectx_t &ctx, jl_cgval_t *ret, jl_value_t *f,
                     ctx.builder.SetInsertPoint(outBB);
                     Value *v_one = ConstantInt::get(ctx.types().T_size, 1);
                     ctx.builder.CreateBr(ansBB);
+#if JL_LLVM_VERSION >= 160000
+                    ctx.f->insert(ctx.f->end(), ansBB);
+#else
                     ctx.f->getBasicBlockList().push_back(inBB);
+#endif
                     ctx.builder.SetInsertPoint(inBB);
                     Value *v_sz = emit_arraysize(ctx, ary, idx_dyn);
                     ctx.builder.CreateBr(ansBB);
                     inBB = ctx.builder.GetInsertBlock(); // could have changed
+#if JL_LLVM_VERSION >= 160000
+                    ctx.f->insert(ctx.f->end(), ansBB);
+#else
                     ctx.f->getBasicBlockList().push_back(ansBB);
+#endif
                     ctx.builder.SetInsertPoint(ansBB);
                     PHINode *result = ctx.builder.CreatePHI(ctx.types().T_size, 2);
                     result->addIncoming(v_one, outBB);
@@ -4693,7 +4708,11 @@ static void undef_var_error_ifnot(jl_codectx_t &ctx, Value *ok, jl_sym_t *name)
     ctx.builder.CreateCall(prepare_call(jlundefvarerror_func),
         mark_callee_rooted(ctx, literal_pointer_val(ctx, (jl_value_t*)name)));
     ctx.builder.CreateUnreachable();
+#if JL_LLVM_VERSION >= 160000
+    ctx.f->insert(ctx.f->end(), ifok);
+#else
     ctx.f->getBasicBlockList().push_back(ifok);
+#endif
     ctx.builder.SetInsertPoint(ifok);
 }
 
@@ -4709,7 +4728,11 @@ static void emit_hasnofield_error_ifnot(jl_codectx_t &ctx, Value *ok, jl_sym_t *
                           {mark_callee_rooted(ctx, literal_pointer_val(ctx, (jl_value_t*)type)),
                            mark_callee_rooted(ctx, boxed(ctx, name))});
     ctx.builder.CreateUnreachable();
+#if JL_LLVM_VERSION >=160000
+    ctx.f->insert(ctx.f->end(), ifok);
+#else
     ctx.f->getBasicBlockList().push_back(ifok);
+#endif
     ctx.builder.SetInsertPoint(ifok);
 }
 
@@ -4745,7 +4768,11 @@ static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t
         auto iscached = ctx.builder.CreateICmpNE(cachedval, initnul);
         setName(ctx.emission_context, iscached, "iscached");
         ctx.builder.CreateCondBr(iscached, have_val, not_found);
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), not_found);
+#else
         ctx.f->getBasicBlockList().push_back(not_found);
+#endif
         ctx.builder.SetInsertPoint(not_found);
         Value *bval = ctx.builder.CreateCall(prepare_call(assign ? jlgetbindingwrorerror_func : jlgetbindingorerror_func),
                 { literal_pointer_val(ctx, (jl_value_t*)m),
@@ -4753,7 +4780,11 @@ static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t
         setName(ctx.emission_context, bval, jl_symbol_name(m->name) + StringRef(".") + jl_symbol_name(s) + ".found");
         ctx.builder.CreateAlignedStore(bval, bindinggv, Align(sizeof(void*)))->setOrdering(AtomicOrdering::Release);
         ctx.builder.CreateBr(have_val);
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), have_val);
+#else
         ctx.f->getBasicBlockList().push_back(have_val);
+#endif
         ctx.builder.SetInsertPoint(have_val);
         PHINode *p = ctx.builder.CreatePHI(ctx.types().T_pjlvalue, 2);
         p->addIncoming(cachedval, currentbb);
@@ -5081,9 +5112,17 @@ static void emit_phinode_assign(jl_codectx_t &ctx, ssize_t idx, jl_value_t *r)
             Instruction *phi = dest->clone();
             phi->insertAfter(dest);
             PHINode *Tindex_phi = PHINode::Create(getInt8Ty(ctx.builder.getContext()), jl_array_len(edges), "tindex_phi");
+#if JL_LLVM_VERSION >= 160000
+            InsertPt = Tindex_phi->insertInto(BB, InsertPt);
+#else
             BB->getInstList().insert(InsertPt, Tindex_phi);
+#endif
             PHINode *ptr_phi = PHINode::Create(ctx.types().T_prjlvalue, jl_array_len(edges), "ptr_phi");
+#if JL_LLVM_VERSION >= 160000
+            InsertPt = ptr_phi->insertInto(BB, InsertPt);
+#else
             BB->getInstList().insert(InsertPt, ptr_phi);
+#endif
             Value *isboxed = ctx.builder.CreateICmpNE(
                     ctx.builder.CreateAnd(Tindex_phi, ConstantInt::get(getInt8Ty(ctx.builder.getContext()), 0x80)),
                     ConstantInt::get(getInt8Ty(ctx.builder.getContext()), 0));
@@ -5101,7 +5140,11 @@ static void emit_phinode_assign(jl_codectx_t &ctx, ssize_t idx, jl_value_t *r)
         }
         else if (allunbox) {
             PHINode *Tindex_phi = PHINode::Create(getInt8Ty(ctx.builder.getContext()), jl_array_len(edges), "tindex_phi");
+#if JL_LLVM_VERSION >= 160000
+            InsertPt = Tindex_phi->insertInto(BB, InsertPt);
+#else
             BB->getInstList().insert(InsertPt, Tindex_phi);
+#endif
             jl_cgval_t val = mark_julia_slot(NULL, phiType, Tindex_phi, ctx.tbaa().tbaa_stack);
             ctx.PhiNodes.push_back(std::make_tuple(val, BB, dest, (PHINode*)NULL, r));
             ctx.SAvalues.at(idx) = val;
@@ -5135,7 +5178,11 @@ static void emit_phinode_assign(jl_codectx_t &ctx, ssize_t idx, jl_value_t *r)
     }
     else {
         value_phi = PHINode::Create(vtype, jl_array_len(edges), "value_phi");
+#if JL_LLVM_VERSION >= 160000
+        InsertPt = value_phi->insertInto(BB, InsertPt);
+#else
         BB->getInstList().insert(InsertPt, value_phi);
+#endif
         slot = mark_julia_type(ctx, value_phi, isboxed, phiType);
     }
     ctx.PhiNodes.push_back(std::make_tuple(slot, BB, dest, value_phi, r));
@@ -5814,7 +5861,11 @@ static jl_cgval_t emit_expr(jl_codectx_t &ctx, jl_value_t *expr, ssize_t ssaidx_
         SmallVector<Metadata *, 8> MDs;
 
         // Reserve first location for self reference to the LoopID metadata node.
+#if JL_LLVM_VERSION >= 160000
+        TempMDTuple TempNode = MDNode::getTemporary(ctx.builder.getContext(), std::nullopt);
+#else
         TempMDTuple TempNode = MDNode::getTemporary(ctx.builder.getContext(), None);
+#endif
         MDs.push_back(TempNode.get());
 
         for (int i = 0, ie = nargs; i < ie; ++i) {
@@ -7559,10 +7610,16 @@ static jl_llvm_functions_t
     // Step 4b. determine debug info signature and other type info for locals
     DICompileUnit::DebugEmissionKind emissionKind = (DICompileUnit::DebugEmissionKind) ctx.params->debug_info_kind;
     DICompileUnit::DebugNameTableKind tableKind;
+#if JL_LLVM_VERSION >= 160000
+#undef None
+#endif
     if (JL_FEAT_TEST(ctx, gnu_pubnames))
         tableKind = DICompileUnit::DebugNameTableKind::GNU;
     else
         tableKind = DICompileUnit::DebugNameTableKind::None;
+#if JL_LLVM_VERSION >= 160000
+#define None std::nullopt
+#endif
     DIBuilder dbuilder(*M, true, debug_enabled ? getOrCreateJuliaCU(*M, emissionKind, tableKind) : NULL);
     DIFile *topfile = NULL;
     DISubprogram *SP = NULL;
@@ -8580,7 +8637,11 @@ static jl_llvm_functions_t
                 BasicBlock *NewBB = BasicBlock::Create(terminator->getContext(),
                    FromBB->getName() + "." + PhiBB->getName() + "_crit_edge");
                 Function::iterator FBBI = FromBB->getIterator();
+#if JL_LLVM_VERSION >= 160000
+                ctx.f->insert(++FBBI, NewBB); // insert after existing block
+#else
                 ctx.f->getBasicBlockList().insert(++FBBI, NewBB); // insert after existing block
+#endif
                 terminator->replaceSuccessorWith(PhiBB, NewBB);
                 DebugLoc Loc = terminator->getDebugLoc();
                 terminator = BranchInst::Create(PhiBB);
@@ -9316,8 +9377,12 @@ extern "C" void jl_init_llvm(void)
     initializeAnalysis(Registry);
     initializeTransformUtils(Registry);
     initializeInstCombine(Registry);
+#if JL_LLVM_VERSION >= 160000
+    // TODO
+#else
     initializeAggressiveInstCombine(Registry);
     initializeInstrumentation(Registry);
+#endif
     initializeTarget(Registry);
 #ifdef USE_POLLY
     polly::initializePollyPasses(Registry);

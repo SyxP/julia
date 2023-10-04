@@ -59,6 +59,13 @@
 
 using namespace llvm;
 
+#if JL_LLVM_VERSION >= 160000
+#include <optional>
+#define None std::nullopt;
+template<typename T>
+using Optional = std::optional<T>;
+#endif
+
 #include "jitlayers.h"
 #include "serialize.h"
 #include "julia_assert.h"

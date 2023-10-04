@@ -152,7 +152,11 @@ static Value *runtime_sym_lookup(
             dlsym_lookup);
 
     assert(f->getParent() != NULL);
+#if JL_LLVM_VERSION >= 160000
+    f->insert(f->end(), dlsym_lookup);
+#else
     f->getBasicBlockList().push_back(dlsym_lookup);
+#endif
     irbuilder.SetInsertPoint(dlsym_lookup);
     Instruction *llvmf;
     Value *nameval = stringConstPtr(emission_context, irbuilder, f_name);
@@ -179,7 +183,11 @@ static Value *runtime_sym_lookup(
     store->setAtomic(AtomicOrdering::Release);
     irbuilder.CreateBr(ccall_bb);
 
+#if JL_LLVM_VERSION >= 160000
+    f->insert(f->end(), ccall_bb);
+#else
     f->getBasicBlockList().push_back(ccall_bb);
+#endif
     irbuilder.SetInsertPoint(ccall_bb);
     PHINode *p = irbuilder.CreatePHI(T_pvoidfunc, 2);
     p->addIncoming(llvmf_orig, enter_bb);
@@ -1686,7 +1694,11 @@ static jl_cgval_t emit_ccall(jl_codectx_t &ctx, jl_value_t **args, size_t nargs)
                 true);
         setName(ctx.emission_context, signal_page_load, "signal_page_load");
         ctx.builder.CreateBr(contBB);
+#if JL_LLVM_VERSION >= 160000
+        ctx.f->insert(ctx.f->end(), contBB);
+#else
         ctx.f->getBasicBlockList().push_back(contBB);
+#endif
         ctx.builder.SetInsertPoint(contBB);
         return ghostValue(ctx, jl_nothing_type);
     }

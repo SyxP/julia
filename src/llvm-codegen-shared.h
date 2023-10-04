@@ -149,8 +149,14 @@ static inline llvm::MDNode *get_tbaa_const(llvm::LLVMContext &ctxt) {
 static inline llvm::Instruction *tbaa_decorate(llvm::MDNode *md, llvm::Instruction *inst)
 {
     inst->setMetadata(llvm::LLVMContext::MD_tbaa, md);
-    if (llvm::isa<llvm::LoadInst>(inst) && md && md == get_tbaa_const(md->getContext()))
-        inst->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(md->getContext(), llvm::None));
+    if (llvm::isa<llvm::LoadInst>(inst) && md && md == get_tbaa_const(md->getContext())) {
+#if JL_LLVM_VERSION >= 160000
+        auto none = std::None;
+#else
+        auto none = llvm::None;
+#endif
+        inst->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(md->getContext(), none));
+    }
     return inst;
 }
 

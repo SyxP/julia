@@ -92,6 +92,13 @@
 #include "julia_assert.h"
 #include "passes.h"
 
+#if JL_LLVM_VERSION >= 160000
+#include <optional>
+#define None std::nullopt;
+template<typename T>
+using Optional = std::optional<T>;
+#endif
+
 
 using namespace llvm;
 
@@ -775,7 +782,7 @@ OptimizationLevel getOptLevel(int optlevel) {
 }
 
 //This part is also basically stolen from LLVM's PassBuilder.cpp file
-static llvm::Optional<std::pair<OptimizationLevel, OptimizationOptions>> parseJuliaPipelineOptions(StringRef name) {
+static Optional<std::pair<OptimizationLevel, OptimizationOptions>> parseJuliaPipelineOptions(StringRef name) {
     if (name.consume_front("julia")) {
         auto O = OptimizationLevel::O2;
         auto options = OptimizationOptions::defaults();

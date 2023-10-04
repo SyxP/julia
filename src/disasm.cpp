@@ -114,6 +114,13 @@ using namespace llvm;
 #include "debuginfo.h"
 #include "julia_assert.h"
 
+#if JL_LLVM_VERSION >= 160000
+#include <optional>
+#define None std::nullopt;
+template<typename T>
+using Optional = std::optional<T>;
+#endif
+
 // helper class for tracking inlining context while printing debug info
 class DILineInfoPrinter {
     // internal state:

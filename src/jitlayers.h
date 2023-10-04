@@ -26,6 +26,10 @@
 #include <stack>
 #include <queue>
 
+#if JL_LLVM_VERSION >= 160000
+#include <optional>
+#endif
+
 // As of LLVM 13, there are two runtime JIT linker implementations, the older
 // RuntimeDyld (used via orc::RTDyldObjectLinkingLayer) and the newer JITLink
 // (used via orc::ObjectLinkingLayer).
@@ -386,7 +390,11 @@ public:
             }
             private:
             ResourcePool &pool;
+#if JL_LLVM_VERSION >= 160000
+            std::optional<ResourceT> resource;
+#else
             llvm::Optional<ResourceT> resource;
+#endif
         };
 
         OwningResource operator*() JL_NOTSAFEPOINT {
