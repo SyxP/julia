@@ -50,8 +50,13 @@ Optional<bool> always_have_fma(Function &intr, const Triple &TT) JL_NOTSAFEPOINT
 
 static bool have_fma(Function &intr, Function &caller, const Triple &TT) JL_NOTSAFEPOINT {
     auto unconditional = always_have_fma(intr, TT);
+#if JL_LLVM_VERSION >= 160000
+    if (unconditional.has_value())
+        return unconditional.value();
+#else
     if (unconditional.hasValue())
         return unconditional.getValue();
+#endif
 
     auto intr_name = intr.getName();
     auto typ = intr_name.substr(strlen("julia.cpu.have_fma."));

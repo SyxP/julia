@@ -423,7 +423,11 @@ bool removeAddrspaces(Module &M, AddrspaceRemapFunction ASRemapper)
     for (Module::iterator FI = M.begin(), FE = M.end(); FI != FE;) {
         Function *F = &*FI++;
         if (auto Remangled = Intrinsic::remangleIntrinsicFunction(F)) {
+#if JL_LLVM_VERSION >= 160000
+            F->replaceAllUsesWith(Remangled.value());
+#else
             F->replaceAllUsesWith(Remangled.getValue());
+#endif
             F->eraseFromParent();
         }
     }
