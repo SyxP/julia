@@ -93,12 +93,11 @@
 #include "passes.h"
 
 #if JL_LLVM_VERSION >= 160000
-#include <optional>
-#define None std::nullopt;
-template<typename T>
-using Optional = std::optional<T>;
+#include <llvm/ADT/Optional.h>
+namespace llvm {
+    inline constexpr std::nullopt_t None = std::nullopt;
+}
 #endif
-
 
 using namespace llvm;
 

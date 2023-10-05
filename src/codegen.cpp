@@ -78,13 +78,6 @@
 
 using namespace llvm;
 
-#if JL_LLVM_VERSION >= 160000
-#include <optional>
-#define None std::nullopt;
-template<typename T>
-using Optional = std::optional<T>;
-#endif
-
 static bool jl_fpo_disabled(const Triple &TT) {
 #ifdef JL_DISABLE_FPO
     return true;

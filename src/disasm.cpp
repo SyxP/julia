@@ -110,16 +110,16 @@
 #include "jitlayers.h"
 #include "processor.h"
 
+#if JL_LLVM_VERSION >= 160000
+#include <llvm/ADT/Optional.h>
+namespace llvm {
+    inline constexpr std::nullopt_t None = std::nullopt;
+}
+#endif
+
 using namespace llvm;
 #include "debuginfo.h"
 #include "julia_assert.h"
-
-#if JL_LLVM_VERSION >= 160000
-#include <optional>
-#define None std::nullopt;
-template<typename T>
-using Optional = std::optional<T>;
-#endif
 
 // helper class for tracking inlining context while printing debug info
 class DILineInfoPrinter {

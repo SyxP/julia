@@ -2,6 +2,9 @@
 
 #include <utility>
 #include <llvm/ADT/ArrayRef.h>
+#if JL_LLVM_VERSION >= 160000
+#include <llvm/ADT/Optional.h>
+#endif
 #include <llvm/Support/Debug.h>
 #include <llvm/IR/Attributes.h>
 #include <llvm/IR/DebugLoc.h>
@@ -11,6 +14,12 @@
 
 #define STR(csym)           #csym
 #define XSTR(csym)          STR(csym)
+
+#if JL_LLVM_VERSION >= 160000
+namespace llvm {
+    inline constexpr std::nullopt_t None = std::nullopt;
+}
+#endif
 
 enum AddressSpace {
     Generic = 0,
@@ -150,12 +159,7 @@ static inline llvm::Instruction *tbaa_decorate(llvm::MDNode *md, llvm::Instructi
 {
     inst->setMetadata(llvm::LLVMContext::MD_tbaa, md);
     if (llvm::isa<llvm::LoadInst>(inst) && md && md == get_tbaa_const(md->getContext())) {
-#if JL_LLVM_VERSION >= 160000
-        auto none = std::None;
-#else
-        auto none = llvm::None;
-#endif
-        inst->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(md->getContext(), none));
+        inst->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(md->getContext(), llvm::None));
     }
     return inst;
 }
