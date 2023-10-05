@@ -15,6 +15,7 @@
 
 #include "llvm-version.h"
 #include "passes.h"
+#include "llvm-codegen-shared.h"
 
 #include <llvm/ADT/Statistic.h>
 #include <llvm/IR/Module.h>

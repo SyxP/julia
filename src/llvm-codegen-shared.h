@@ -10,6 +10,7 @@
 #include <llvm/IR/DebugLoc.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/MDBuilder.h>
+#include <llvm/Support/ModRef.h>
 #include "julia.h"
 
 #define STR(csym)           #csym
@@ -250,7 +251,11 @@ static inline void emit_gc_safepoint(llvm::IRBuilder<> &builder, llvm::Type *T_s
             auto T_psize = T_size->getPointerTo();
             FunctionType *FT = FunctionType::get(Type::getVoidTy(C), {T_psize}, false);
             F = Function::Create(FT, Function::ExternalLinkage, "julia.safepoint", M);
+#if JL_LLVM_VERSION >= 160000
+            F->setMemoryEffects(MemoryEffects::inaccessibleOrArgMemOnly());
+#else
             F->addFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
+#endif
         }
         builder.CreateCall(F, {signal_page});
     }
