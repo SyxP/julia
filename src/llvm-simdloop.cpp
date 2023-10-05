@@ -231,7 +231,7 @@ static bool processLoop(Loop &L, OptimizationRemarkEmitter &ORE, ScalarEvolution
         }
 
         if (SE)
-            SE->forgetLoopDispositions(&L);
+            SE->forgetLoopDispositions();
     }
 
 #ifdef JL_VERIFY_PASSES
