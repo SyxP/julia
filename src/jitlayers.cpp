@@ -860,8 +860,11 @@ public:
         PendingObjs.erase(&MR);
         return Error::success();
     }
-
+#if JL_LLVM_VERSION >= 160000
+    Error notifyRemovingResources(JITDylib &JD, orc::ResourceKey K) override
+#else
     Error notifyRemovingResources(ResourceKey K) override
+#endif
     {
         std::lock_guard<std::mutex> lock(PluginMutex);
         RegisteredObjs.erase(K);
@@ -869,7 +872,11 @@ public:
         return Error::success();
     }
 
+#if JL_LLVM_VERSION >= 160000
+    void notifyTransferringResources(JITDylib &JD, ResourceKey DstKey, ResourceKey SrcKey) override
+#else
     void notifyTransferringResources(ResourceKey DstKey, ResourceKey SrcKey) override
+#endif
     {
         std::lock_guard<std::mutex> lock(PluginMutex);
         auto SrcIt = RegisteredObjs.find(SrcKey);
@@ -928,11 +935,21 @@ public:
     Error notifyFailed(orc::MaterializationResponsibility &MR) override {
         return Error::success();
     }
+#if JL_LLVM_VERSION >= 160000
+    Error notifyRemovingResources(JITDylib &JD, orc::ResourceKey K) override
+#else
     Error notifyRemovingResources(orc::ResourceKey K) override {
+#endif
+    {
         return Error::success();
     }
+#if JL_LLVM_VERSION >= 160000
+    void notifyTransferringResources(JITDylib &JD, orc::ResourceKey DstKey,
+                                     orc::ResourceKey SrcKey) override {}
+#else
     void notifyTransferringResources(orc::ResourceKey DstKey,
                                      orc::ResourceKey SrcKey) override {}
+#endif
 
     void modifyPassConfig(orc::MaterializationResponsibility &,
                           jitlink::LinkGraph &,
@@ -949,7 +966,11 @@ public:
                 for (auto block : section.blocks()) {
                     secsize += block->getSize();
                 }
+#if JL_LLVM_VERSION >= 160000
+                if ((section.getMemProt() & orc::MemProt::Exec) == orc::MemProt::None) {
+#else
                 if ((section.getMemProt() & jitlink::MemProt::Exec) == jitlink::MemProt::None) {
+#endif
                     data_size += secsize;
                 } else {
                     code_size += secsize;
@@ -983,8 +1004,10 @@ public:
 std::unique_ptr<jitlink::JITLinkMemoryManager> createJITLinkMemoryManager() {
 #if JL_LLVM_VERSION < 150000
     return cantFail(jitlink::InProcessMemoryManager::Create());
-#else
+#elif JL_LLVM_VERSION < 160000
     return cantFail(orc::MapperJITLinkMemoryManager::CreateWithMapper<orc::InProcessMemoryMapper>());
+#else
+    return cantFail(orc::MapperJITLinkMemoryManager::CreateWithMapper<orc::InProcessMemoryMapper>(/*Reservation Granularity*/ 16 * 1024 * 1024));
 #endif
 }
 
@@ -1031,6 +1054,13 @@ public:
                                      bool IsReadOnly) override {
         return MemMgr->allocateDataSection(Size, Alignment, SectionID, SectionName, IsReadOnly);
     }
+#if JL_LLVM_VERSION >= 160000
+    virtual void reserveAllocationSpace(uintptr_t CodeSize, Align CodeAlign,
+                                        uintptr_t RODataSize, Align RODataAlign,
+                                        uintptr_t RWDataSize, Align RWDataAlign) override {
+        return MemMgr->reserveAllocationSpace(CodeSize, CodeAlign, RODataSize, RODataAlign, RWDataSize, RWDataAlign);
+    }
+#else
     virtual void reserveAllocationSpace(uintptr_t CodeSize, uint32_t CodeAlign,
                                         uintptr_t RODataSize,
                                         uint32_t RODataAlign,
@@ -1038,6 +1068,7 @@ public:
                                         uint32_t RWDataAlign) override {
         return MemMgr->reserveAllocationSpace(CodeSize, CodeAlign, RODataSize, RODataAlign, RWDataSize, RWDataAlign);
     }
+#endif
     virtual bool needsToReserveAllocationSpace() override {
         return MemMgr->needsToReserveAllocationSpace();
     }

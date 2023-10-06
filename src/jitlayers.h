@@ -102,7 +102,9 @@ struct OptimizationOptions {
 
 struct NewPM {
     std::unique_ptr<TargetMachine> TM;
+#if JL_LLVM_VERSION < 160000
     StandardInstrumentations SI;
+#endif
     std::unique_ptr<PassInstrumentationCallbacks> PIC;
     PassBuilder PB;
     ModulePassManager MPM;
