@@ -92,13 +92,6 @@
 #include "julia_assert.h"
 #include "passes.h"
 
-#if JL_LLVM_VERSION >= 160000
-#include <llvm/ADT/Optional.h>
-namespace llvm {
-    inline constexpr std::nullopt_t None = std::nullopt;
-}
-#endif
-
 using namespace llvm;
 
 namespace {
@@ -755,7 +748,7 @@ NewPM::NewPM(std::unique_ptr<TargetMachine> TM, OptimizationLevel O, Optimizatio
 #if JL_LLVM_VERSION < 160000
     SI(false), 
     PIC(createPIC(SI)),
-else
+#else
     PIC(createPIC()),
 #endif
     PB(this->TM.get(), PipelineTuningOptions(), None, PIC.get()),

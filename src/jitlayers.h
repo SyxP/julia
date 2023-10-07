@@ -27,7 +27,17 @@
 #include <queue>
 
 #if JL_LLVM_VERSION >= 160000
+
 #include <optional>
+
+template<typename T>
+using Optional = std::optional<T>;
+static constexpr std::nullopt_t None = std::nullopt;
+
+#else
+
+#include <llvm/ADT/Optional.h>
+
 #endif
 
 // As of LLVM 13, there are two runtime JIT linker implementations, the older
@@ -392,11 +402,7 @@ public:
             }
             private:
             ResourcePool &pool;
-#if JL_LLVM_VERSION >= 160000
-            std::optional<ResourceT> resource;
-#else
-            llvm::Optional<ResourceT> resource;
-#endif
+            Optional<ResourceT> resource;
         };
 
         OwningResource operator*() JL_NOTSAFEPOINT {

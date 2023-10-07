@@ -103,13 +103,9 @@ static uint32_t collect_func_info(Function &F, const Triple &TT, bool &has_vecca
                         if (name.startswith("julia.cpu.have_fma.")) {
                             // for some platforms we know they always do (or don't) support
                             // FMA. in those cases we don't need to clone the function.
-#if JL_LLVM_VERSION >= 160000
-                            if (!always_have_fma(*callee, TT).has_value())
+                            // always_have_fma returns an optional<bool>
+                            if (!always_have_fma(*callee, TT))
                                 flag |= JL_TARGET_CLONE_CPU;
-#else
-                            if (!always_have_fma(*callee, TT).hasValue())
-                                flag |= JL_TARGET_CLONE_CPU;
-#endif
                         } else {
                             flag |= JL_TARGET_CLONE_CPU;
                         }

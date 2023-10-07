@@ -938,7 +938,7 @@ public:
 #if JL_LLVM_VERSION >= 160000
     Error notifyRemovingResources(JITDylib &JD, orc::ResourceKey K) override
 #else
-    Error notifyRemovingResources(orc::ResourceKey K) override {
+    Error notifyRemovingResources(orc::ResourceKey K) override
 #endif
     {
         return Error::success();

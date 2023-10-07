@@ -2,25 +2,20 @@
 
 #include <utility>
 #include <llvm/ADT/ArrayRef.h>
-#if JL_LLVM_VERSION >= 160000
-#include <llvm/ADT/Optional.h>
-#endif
 #include <llvm/Support/Debug.h>
 #include <llvm/IR/Attributes.h>
 #include <llvm/IR/DebugLoc.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/MDBuilder.h>
+
+#if JL_LLVM_VERSION >= 160000
 #include <llvm/Support/ModRef.h>
+#endif
+
 #include "julia.h"
 
 #define STR(csym)           #csym
 #define XSTR(csym)          STR(csym)
-
-#if JL_LLVM_VERSION >= 160000
-namespace llvm {
-    inline constexpr std::nullopt_t None = std::nullopt;
-}
-#endif
 
 enum AddressSpace {
     Generic = 0,
