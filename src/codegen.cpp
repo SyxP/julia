@@ -1034,8 +1034,17 @@ static const auto jl_typeof_func = new JuliaFunction<>{
         return FunctionType::get(T_prjlvalue,
                 {T_prjlvalue}, false);
     },
-    [](LLVMContext &C) { return AttributeList::get(C,
-            Attributes(C, {Attribute::ReadNone, Attribute::NoUnwind, Attribute::NoRecurse}),
+    [](LLVMContext &C) { 
+        AttrBuilder FnAttrs(C);
+#if JL_LLVM_VERSION >= 160000
+        FnAttrs.addMemoryAttr(MemoryEffects::none());
+#else
+        FnAttrs.addAttribute(Attribute::ReadNone);
+#endif
+        FnAttrs.addAttribute(Attribute::NoUnwind);
+        FnAttrs.addAttribute(Attribute::NoRecurse);
+        return AttributeList::get(C,
+            AttributeSet::get(C, FnAttrs),
             Attributes(C, {Attribute::NonNull}),
             None); },
 };
@@ -1056,11 +1065,7 @@ static const auto jl_write_barrier_func = new JuliaFunction<>{
         return AttributeList::get(C,
             AttributeSet::get(C, FnAttrs),
             AttributeSet(),
-#if JL_LLVM_VERSION >= 160000
-            AttributeSet::get(C, {Attribute::getWithMemoryEffects(C, MemoryEffects::readOnly())}));
-#else
             {Attributes(C, {Attribute::ReadOnly})}); 
-#endif
     },
 };
 
@@ -1128,11 +1133,11 @@ static const auto memcmp_func = new JuliaFunction<TypeFnContextAndSizeT>{
     [](LLVMContext &C) { 
         AttrBuilder FnAttrs(C);
 #if JL_LLVM_VERSION >= 160000
-        FnAttrs.addMemoryAttr(MemoryEffects::argMemOnly());
+        FnAttrs.addMemoryAttr(MemoryEffects::argMemOnly(ModRefInfo::Ref));
 #else
         FnAttrs.addAttribute(Attribute::ArgMemOnly);
-#endif
         FnAttrs.addAttribute(Attribute::ReadOnly);
+#endif
         FnAttrs.addAttribute(Attribute::NoUnwind);
         return AttributeList::get(C,
             AttributeSet::get(C, FnAttrs),
@@ -1180,8 +1185,17 @@ static const auto jlfieldindex_func = new JuliaFunction<>{
         return FunctionType::get(getInt32Ty(C),
             {T_prjlvalue, T_prjlvalue, getInt32Ty(C)}, false);
     },
-    [](LLVMContext &C) { return AttributeList::get(C,
-            Attributes(C, {Attribute::NoUnwind, Attribute::ReadOnly, Attribute::WillReturn}),
+    [](LLVMContext &C) {
+        AttrBuilder FnAttrs(C);
+#if JL_LLVM_VERSION >= 160000
+        FnAttrs.addMemoryAttr(MemoryEffects::readOnly());
+#else
+        FnAttrs.addAttribute(Attribute::ReadOnly);
+#endif
+        FnAttrs.addAttribute(Attribute::NoUnwind);
+        FnAttrs.addAttribute(Attribute::WillReturn);
+        return AttributeList::get(C,
+            AttributeSet::get(C, FnAttrs),
             AttributeSet(),
             None); }, // This function can error if the third argument is 1 so don't do that.
 };
@@ -1239,8 +1253,16 @@ static const auto jlarray_data_owner_func = new JuliaFunction<>{
         return FunctionType::get(T_prjlvalue,
             {T_prjlvalue}, false);
     },
-    [](LLVMContext &C) { return AttributeList::get(C,
-            Attributes(C, {Attribute::ReadOnly, Attribute::NoUnwind}),
+    [](LLVMContext &C) { 
+        AttrBuilder FnAttrs(C);
+#if JL_LLVM_VERSION >= 160000
+        FnAttrs.addMemoryAttr(MemoryEffects::readOnly());
+#else
+        FnAttrs.addAttribute(Attribute::ReadOnly);
+#endif
+        FnAttrs.addAttribute(Attribute::NoUnwind);
+        return AttributeList::get(C,
+            AttributeSet::get(C, FnAttrs),
             Attributes(C, {Attribute::NonNull}),
             None); },
 };
@@ -1301,8 +1323,16 @@ static const auto pointer_from_objref_func = new JuliaFunction<>{
     "julia.pointer_from_objref",
     [](LLVMContext &C) { return FunctionType::get(JuliaType::get_pjlvalue_ty(C),
             {PointerType::get(JuliaType::get_jlvalue_ty(C), AddressSpace::Derived)}, false); },
-    [](LLVMContext &C) { return AttributeList::get(C,
-            AttributeSet::get(C, makeArrayRef({Attribute::get(C, Attribute::ReadNone), Attribute::get(C, Attribute::NoUnwind)})),
+    [](LLVMContext &C) { 
+        AttrBuilder FnAttrs(C);
+#if JL_LLVM_VERSION >= 160000
+        FnAttrs.addMemoryAttr(MemoryEffects::none());
+#else
+        FnAttrs.addAttribute(Attribute::ReadNone);
+#endif
+        FnAttrs.addAttribute(Attribute::NoUnwind);
+        return AttributeList::get(C,
+            AttributeSet::get(C, FnAttrs),
             Attributes(C, {Attribute::NonNull}),
             None); },
 };
