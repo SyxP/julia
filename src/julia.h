@@ -1901,6 +1901,8 @@ JL_DLLEXPORT jl_value_t *jl_restore_incremental(const char *fname, jl_array_t *d
 
 JL_DLLEXPORT void jl_set_newly_inferred(jl_value_t *newly_inferred);
 JL_DLLEXPORT void jl_push_newly_inferred(jl_value_t *ci);
+JL_DLLEXPORT void jl_set_newly_deleted(jl_value_t *newly_deleted);
+JL_DLLEXPORT void jl_push_newly_deleted(jl_value_t *m);
 JL_DLLEXPORT void jl_write_compiler_output(void);
 
 // parsing
