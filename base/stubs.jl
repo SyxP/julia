@@ -27,7 +27,7 @@ function delete_stubs(mod)
         if name == :delay_initialize
             continue
         end
-        obj = getglobal(Base.Stubs.Randomod, name)
+        obj = getglobal(mod, name)
         if obj isa Function
             ms = Base.methods(obj, mod)
             for m in ms
