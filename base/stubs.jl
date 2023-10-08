@@ -7,7 +7,7 @@ module Random
         global delay_initialize
         function delay_initialize()
             if !isassigned(RANDOM_MODULE_REF)
-                RANDOM_MODULE_REF[] = require(Random_PkgID)
+                RANDOM_MODULE_REF[] = Base.require(Random_PkgID)
             end
             return ccall(:jl_module_world, Csize_t, (Any,), RANDOM_MODULE_REF[])
         end
