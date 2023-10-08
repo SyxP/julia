@@ -1926,6 +1926,7 @@ JL_DLLEXPORT void jl_method_table_disable_incremental(jl_methtable_t *mt, jl_met
     jl_typemap_entry_t *methodentry = do_typemap_search(mt, method);
     JL_LOCK(&mt->writelock);
     // Narrow the world age on the method to make it uncallable
+    // size_t world = jl_atomic_load_acquire(&jl_world_counter);
     size_t world = jl_atomic_fetch_add(&jl_world_counter, 1);
     jl_method_table_invalidate(mt, methodentry, world, 1);
     JL_UNLOCK(&mt->writelock);

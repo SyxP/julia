@@ -838,6 +838,19 @@ static void jl_insert_methods(jl_array_t *list)
     }
 }
 
+static void jl_delete_methods(jl_array_t *list)
+{
+    size_t i, l = jl_array_len(list);
+    for (i = 0; i < l; i++) {
+        jl_method_t *meth = (jl_method_t*)jl_array_ptr_ref(list, i);
+        assert(jl_is_method(meth));
+        assert(!meth->is_for_opaque_closure);
+        jl_methtable_t *mt = jl_method_get_table(meth);
+        assert((jl_value_t*)mt != jl_nothing);
+        jl_method_table_disable_incremental(mt, meth);
+    }
+}
+
 static void jl_copy_roots(jl_array_t *method_roots_list, uint64_t key)
 {
     size_t i, l = jl_array_len(method_roots_list);

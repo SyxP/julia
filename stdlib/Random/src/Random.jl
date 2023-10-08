@@ -31,28 +31,11 @@ export rand!, randn!,
 
 ## general definitions
 
-# Remove the shim methods
-# TODO: If we could support this as part of package loading
-#       That would be much nicer.
-# for m in Base.methods(rand)
-#     if m.module == Base
-#         Base.delete_method(m)
-#     end
-# end
+Base.Stubs.delete_stubs(Base.Stubs.Random)
 
 function __init__()
     seed!()
     ccall(:jl_gc_init_finalizer_rng_state, Cvoid, ())
-
-    # Remove the shim methods
-    # Is this too coarse? We want to only delete the method
-    # in Base, not any added by the user later on.
-    # We are currently not allowed to run this during any precompilation
-    # so we must guard it until "normal runtime".
-    # TODO: What to do when we are including Random into a sysimg.
-    if !Base.generating_output()
-        Base.Stubs.delete_stubs(Base.Stubs.Random)
-    end
 end
 
 """
