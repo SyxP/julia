@@ -5150,10 +5150,10 @@ static void emit_phinode_assign(jl_codectx_t &ctx, ssize_t idx, jl_value_t *r)
             Instruction *phi = dest->clone();
             phi->insertAfter(dest);
             auto prevInsert = ctx.builder.GetInsertPoint();
-            ctx.builder.SetInsertPoint(InsertPt);
+            ctx.builder.SetInsertPoint(BB, InsertPt);
             auto Tindex_phi = ctx.builder.CreatePHI(getInt8Ty(ctx.builder.getContext()), jl_array_len(edges), "tindex_phi");
             auto ptr_phi = ctx.builder.CreatePHI(ctx.types().T_prjlvalue, jl_array_len(edges), "ptr_phi");
-            ctx.builder.SetInsertPoint(prevInsert);
+            ctx.builder.SetInsertPoint(BB, prevInsert);
             Value *isboxed = ctx.builder.CreateICmpNE(
                     ctx.builder.CreateAnd(Tindex_phi, ConstantInt::get(getInt8Ty(ctx.builder.getContext()), 0x80)),
                     ConstantInt::get(getInt8Ty(ctx.builder.getContext()), 0));
@@ -5171,9 +5171,9 @@ static void emit_phinode_assign(jl_codectx_t &ctx, ssize_t idx, jl_value_t *r)
         }
         else if (allunbox) {
             auto prevInsert = ctx.builder.GetInsertPoint();
-            ctx.builder.SetInsertPoint(InsertPt);
-            ctx.builder.CreatePHI(getInt8Ty(ctx.builder.getContext()), jl_array_len(edges), "tindex_phi");
-            ctx.builder.SetInsertPoint(prevInsert);
+            ctx.builder.SetInsertPoint(BB, InsertPt);
+            auto Tindex_phi = ctx.builder.CreatePHI(getInt8Ty(ctx.builder.getContext()), jl_array_len(edges), "tindex_phi");
+            ctx.builder.SetInsertPoint(BB, prevInsert);
             jl_cgval_t val = mark_julia_slot(NULL, phiType, Tindex_phi, ctx.tbaa().tbaa_stack);
             ctx.PhiNodes.push_back(std::make_tuple(val, BB, dest, (PHINode*)NULL, r));
             ctx.SAvalues.at(idx) = val;
@@ -5207,9 +5207,9 @@ static void emit_phinode_assign(jl_codectx_t &ctx, ssize_t idx, jl_value_t *r)
     }
     else {
         auto prevInsert = ctx.builder.GetInsertPoint();
-        ctx.builder.SetInsertPoint(InsertPt);
+        ctx.builder.SetInsertPoint(BB, InsertPt);
         value_phi = ctx.builder.CreatePHI(vtype, jl_array_len(edges), "value_phi");
-        ctx.builder.SetInsertPoint(prevInsert);
+        ctx.builder.SetInsertPoint(BB, prevInsert);
         slot = mark_julia_type(ctx, value_phi, isboxed, phiType);
     }
     ctx.PhiNodes.push_back(std::make_tuple(slot, BB, dest, value_phi, r));
@@ -8652,8 +8652,7 @@ static jl_llvm_functions_t
                 // Can't use `llvm::SplitCriticalEdge` here because
                 // we may have invalid phi nodes in the destination.
                 BasicBlock *NewBB = BasicBlock::Create(terminator->getContext(),
-                   FromBB->getName() + "." + PhiBB->getName() + "_crit_edge");
-                NewBB->moveAfter(FromBB); // insert after existing block
+                   FromBB->getName() + "." + PhiBB->getName() + "_crit_edge", FromBB->getParent(), FromBB->getNextNode()); // insert after existing block
                 terminator->replaceSuccessorWith(PhiBB, NewBB);
                 DebugLoc Loc = terminator->getDebugLoc();
                 terminator = BranchInst::Create(PhiBB);
