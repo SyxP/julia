@@ -13,17 +13,18 @@ module Random
         end
     end
 
-    function Base.rand(args...)
+    import Base: rand, randn
+    function rand(args...)
         Base.invoke_in_world(delay_initialize(), rand, args...)
     end
 
-    function Base.randn(args...)
-        Base.invoke_in_world(delay_initialize(), rand, args...)
+    function randn(args...)
+        Base.invoke_in_world(delay_initialize(), randn, args...)
     end
 end
 
 function delete_stubs(mod)
-    for name in names(mod)
+    for name in names(mod, imported=true)
         if name == :delay_initialize
             continue
         end
